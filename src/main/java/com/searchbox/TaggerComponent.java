@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import javax.xml.ws.Response;
 import org.apache.lucene.document.Document;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CommonParams;
@@ -120,16 +122,16 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         }
 
         boostsFileName = (String) args.get(TaggerComponentParams.BOOSTS_FILENAME);
-                
-        
-        
+
+
+
         LOGGER.debug("maxNumDocs is " + maxNumDocs);
         LOGGER.debug("minDocFreq is " + minDocFreq);
         LOGGER.debug("buildOnCommit is " + buildOnCommit);
         LOGGER.debug("buildOnOptimize is " + buildOnOptimize);
         LOGGER.debug("storeDirname is " + storeDirname);
-        LOGGER.debug("Fields is " + globalfields); 
-        LOGGER.debug("Boosts file is "+boostsFileName);
+        LOGGER.debug("Fields is " + globalfields);
+        LOGGER.debug("Boosts file is " + boostsFileName);
 
     }
 
@@ -141,6 +143,8 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
     @Override
     public void process(ResponseBuilder rb) throws IOException {
         LOGGER.trace(("Hit process"));
+        numRequests++;
+
         if (!keystate) {
             LOGGER.error("License key failure, not performing tagging. Please email contact@searchbox.com for more information.");
             numErrors++;
@@ -161,17 +165,35 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             throw new SolrException(SolrException.ErrorCode.SERVER_ERROR,
                     "Model for SBtagger not created, create using sbtagger.build=true");
         }
-        String query = params.get(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.QUERY, params.get(CommonParams.Q));
-        LOGGER.debug("Query:\t" + query);
-        if (query == null) {
-            LOGGER.warn("No query, returning..maybe was just used for  building index?");
+        String commonparamsQuery = params.get(CommonParams.Q);
+        String query = params.get(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.QUERY);
+
+        int lcount = params.getInt(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.COUNT, TaggerComponentParams.COUNT_DEFAULT);
+        
+        LOGGER.debug("Tagger Query:\t" + query);
+        LOGGER.debug("Common params Query:\t" + commonparamsQuery);
+
+        long lstartTime = System.currentTimeMillis();
+
+        NamedList response = null;
+        if (commonparamsQuery != null) {
+            //do for documents
+            response = doDocuments(rb, params, searcher,lcount);
+        } else if (query != null) {
+            //do for tag text
+            response = doText(query, lcount);
+        } else {
+            LOGGER.warn("No query in q or sbtagger.q, returning..maybe was just used for  building index?");
             numErrors++;
             return;
         }
 
-        long lstartTime = System.currentTimeMillis();
-        numRequests++;
 
+        rb.rsp.add(TaggerComponentParams.PRODUCT_NAME, response);
+        totalRequestsTime += System.currentTimeMillis() - lstartTime;
+    }
+
+    private NamedList doDocuments(ResponseBuilder rb, SolrParams params, SolrIndexSearcher searcher, int lcount) {
         /*-----------------*/
 
 
@@ -187,10 +209,10 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
         if (fields == null) {
             LOGGER.error("Fields aren't defined, not performing tagging.");
-            return;
+            return null;
         }
 
-        int lcount = params.getInt(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.COUNT, TaggerComponentParams.COUNT_DEFAULT);
+        
 
         DocList docs = rb.getResults().docList;
         if (docs == null || docs.size() == 0) {
@@ -213,28 +235,43 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
         DocIterator iterator = docs.iterator();
         for (int i = 0; i < docs.size(); i++) {
-            int docId = iterator.nextDoc();
+            try {
+                int docId = iterator.nextDoc();
 
-            Document doc = searcher.doc(docId, fset);
-            StringBuilder sb = new StringBuilder();
-            for (String field : fields) {
-                String text = doc.getField(field).stringValue();
-                sb.append(text + ". ");
-            }
+                Document doc = searcher.doc(docId, fset);
+                StringBuilder sb = new StringBuilder();
+                for (String field : fields) {
+                    String text = doc.getField(field).stringValue();
+                    sb.append(text + ". ");
+                }
 
-            String q = sb.toString();
-            String id = doc.getField(keyField.getName()).stringValue();
-            //do work here
-            TaggerResultSet trs = dfb.tagText(q, lcount);
-            NamedList docresponse = new SimpleOrderedMap();
-            for (TaggerResult tr : trs.suggestions) {
-                docresponse.add(tr.suggestion, tr.score);
+                String q = sb.toString();
+                String id = doc.getField(keyField.getName()).stringValue();
+                //do work here
+                TaggerResultSet trs = dfb.tagText(q, lcount);
+                NamedList docresponse = new SimpleOrderedMap();
+                for (TaggerResult tr : trs.suggestions) {
+                    docresponse.add(tr.suggestion, tr.score);
+                }
+                response.add(id, docresponse);
+            } catch (IOException ex) {
+                java.util.logging.Logger.getLogger(TaggerComponent.class.getName()).log(Level.SEVERE, null, ex);
             }
-            response.add(id, docresponse);
         }
         //   response.add(suggestion.suggestion, suggestion.probability);
-        rb.rsp.add(TaggerComponentParams.PRODUCT_NAME, response);
-        totalRequestsTime += System.currentTimeMillis() - lstartTime;
+        return response;
+    }
+
+    private NamedList doText(String q, int lcount) {
+        NamedList response = new SimpleOrderedMap();
+
+        TaggerResultSet trs = dfb.tagText(q, lcount);
+        NamedList docresponse = new SimpleOrderedMap();
+        for (TaggerResult tr : trs.suggestions) {
+            docresponse.add(tr.suggestion, tr.score);
+        }
+        response.add("sbtagger.q", docresponse);
+        return response;
     }
 
     public void inform(SolrCore core) {
@@ -251,7 +288,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
                 storeDir.mkdirs();
             } else {
                 try {
-                    dfb=Tagger.loadTagger(storeDir, boostsFileName);
+                    dfb = Tagger.loadTagger(storeDir, boostsFileName);
                 } catch (Exception ex) {
                     LOGGER.error("Error loading Tagger model");
                 }
@@ -311,7 +348,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             // firstSearcher event
             try {
                 LOGGER.info("Loading tagger model.");
-                dfb=Tagger.loadTagger(storeDir,boostsFileName);
+                dfb = Tagger.loadTagger(storeDir, boostsFileName);
 
             } catch (Exception e) {
                 LOGGER.error("Exception in reloading tagger model.");
@@ -330,15 +367,13 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         }
     }
 
-
-
     private boolean checkLicense(String key, String PRODUCT_KEY) {
         return com.searchbox.utils.DecryptLicense.checkLicense(key, PRODUCT_KEY);
     }
 
     private void buildAndWrite(SolrIndexSearcher searcher) {
         LOGGER.info("Building tagger model");
-        dfb = new Tagger(searcher, globalfields,boostsFileName, minDocFreq, maxNumDocs);
+        dfb = new Tagger(searcher, globalfields, boostsFileName, minDocFreq, maxNumDocs);
         dfb.writeFile(storeDir);
         LOGGER.info("Done building and storing tagger model");
     }
