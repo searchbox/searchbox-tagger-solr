@@ -27,6 +27,7 @@ public class TaggerComponentParams {
     public static final String STOREDIR = "storeDir";
     public static final String STOREDIR_DEFAULT = PRODUCT_NAME;
     
+    public static final String BOOSTS_FILENAME="boostsfile";
     
     public static final String BUILD = "build";
     

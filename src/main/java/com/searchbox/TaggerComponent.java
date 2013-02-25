@@ -48,6 +48,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
     protected NamedList initParams;
     protected File storeDir;
     protected String storeDirname;
+    protected String boostsFileName;
     protected Boolean buildOnOptimize = false;
     protected Boolean buildOnCommit = false;
     protected Integer minDocFreq;
@@ -118,13 +119,17 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
                     "Need to specify at least one field");
         }
 
+        boostsFileName = (String) args.get(TaggerComponentParams.BOOSTS_FILENAME);
+                
+        
+        
         LOGGER.debug("maxNumDocs is " + maxNumDocs);
         LOGGER.debug("minDocFreq is " + minDocFreq);
         LOGGER.debug("buildOnCommit is " + buildOnCommit);
         LOGGER.debug("buildOnOptimize is " + buildOnOptimize);
         LOGGER.debug("storeDirname is " + storeDirname);
-        LOGGER.debug("Fields is " + globalfields);
-
+        LOGGER.debug("Fields is " + globalfields); 
+        LOGGER.debug("Boosts file is "+boostsFileName);
 
     }
 
@@ -166,12 +171,6 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
         long lstartTime = System.currentTimeMillis();
         numRequests++;
-
-
-
-
-
-
 
         /*-----------------*/
 
@@ -252,7 +251,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
                 storeDir.mkdirs();
             } else {
                 try {
-                    readFile(storeDir);
+                    dfb=Tagger.loadTagger(storeDir, boostsFileName);
                 } catch (Exception ex) {
                     LOGGER.error("Error loading Tagger model");
                 }
@@ -312,7 +311,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             // firstSearcher event
             try {
                 LOGGER.info("Loading tagger model.");
-                readFile(storeDir);
+                dfb=Tagger.loadTagger(storeDir,boostsFileName);
 
             } catch (Exception e) {
                 LOGGER.error("Exception in reloading tagger model.");
@@ -331,34 +330,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         }
     }
 
-    public void writeFile(File dir) {
-        LOGGER.info("Writing tagger model to file");
-        try {
-            FileOutputStream fos = new FileOutputStream(dir + File.separator + "tagger.ser");
-            BufferedOutputStream bos = new BufferedOutputStream(fos);
-            ObjectOutputStream oos = new ObjectOutputStream(bos);
-            oos.writeObject(dfb.getDFs());
-            oos.flush();
-            oos.close();
-        } catch (Exception e) {
-            LOGGER.error("There was a problem with saving model to disk. Tagger will still work because model is in memory." + e.getMessage());
-        }
-        LOGGER.info("Done writing tagger model to file");
-    }
 
-    private void readFile(File dir) {
-        LOGGER.info("Reading object from file");
-        try {
-            FileInputStream fis = new FileInputStream(dir + File.separator + "tagger.ser");
-            BufferedInputStream bis = new BufferedInputStream(fis);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            dfb = new Tagger((HashMap<String, Integer>) ois.readObject());
-            ois.close();
-        } catch (Exception e) {
-            LOGGER.error("There was a problem with load model from disk. Tagger will not work unless build=true option is passed. Stack Message: " + e.getMessage());
-        }
-        LOGGER.info("Done reading object from file");
-    }
 
     private boolean checkLicense(String key, String PRODUCT_KEY) {
         return com.searchbox.utils.DecryptLicense.checkLicense(key, PRODUCT_KEY);
@@ -366,8 +338,8 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
     private void buildAndWrite(SolrIndexSearcher searcher) {
         LOGGER.info("Building tagger model");
-        dfb = new Tagger(searcher, globalfields, minDocFreq, maxNumDocs);
-        writeFile(storeDir);
+        dfb = new Tagger(searcher, globalfields,boostsFileName, minDocFreq, maxNumDocs);
+        dfb.writeFile(storeDir);
         LOGGER.info("Done building and storing tagger model");
     }
 }

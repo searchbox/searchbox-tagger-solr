@@ -4,11 +4,18 @@
  */
 package com.searchbox;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,12 +52,15 @@ public class Tagger {
     private String posModelName = "en-pos-maxent.bin";
     private String stopWordsFileName = "stopwords_for_suggestor.txt";
     private HashSet<String> stopwords;
+    private HashMap<String, Double> boosts;
     public int numdocs;
     private HashMap<String, Integer> dfcounts = new HashMap<String, Integer>();
     ;
     private static final Set<String> POS = new HashSet<String>(Arrays.asList(new String[]{"NN", "NNS", "NNPS", "NNP", "JJ"}));
 
+    
     /*------------*/
+
     public void Tokenizer(String filename_model) throws FileNotFoundException {
         InputStream modelIn = (getClass().getResourceAsStream("/" + filename_model));
         try {
@@ -95,12 +105,13 @@ public class Tagger {
     }
 
     /*----------*/
-    private void init() {
+    private void init(String boostsFileName) {
         try {
             SentenceParser(sentenceDetectorModelName);
             Tokenizer(tokenizerModelName);
             POSTagger(posModelName);
             loadStopWords(stopWordsFileName);
+            loadBoosts(boostsFileName);
         } catch (FileNotFoundException ex) {
             LOGGER.error("File not found", ex);
         }
@@ -151,14 +162,15 @@ public class Tagger {
 
     }
 
-    Tagger(HashMap<String, Integer> dfcounts) {
-        init();
+    Tagger(HashMap<String, Integer> dfcounts, String boostsFileName) {
+
+        init(boostsFileName);
         this.dfcounts = dfcounts;
         this.numdocs = dfcounts.get(DOC_COUNTS_STRING);
     }
 
-    Tagger(SolrIndexSearcher searcher, List<String> fields, int minDocFreq, int maxNumDocs) {
-        init();
+    Tagger(SolrIndexSearcher searcher, List<String> fields, String boostsFileName, int minDocFreq, int maxNumDocs) {
+        init(boostsFileName);
         DfCountBuilder(searcher, fields, maxNumDocs);
         pruneList(minDocFreq);
     }
@@ -171,8 +183,8 @@ public class Tagger {
             String[] poses = getPOSTokens(tokens);
 
             for (int zz = 0; zz < tokens.length; zz++) {
-                String ltoken=tokens[zz].toLowerCase().trim();
-                if (ltoken.length()< 4 || stopwords.contains(ltoken) || !POS.contains(poses[zz])) {
+                String ltoken = tokens[zz].toLowerCase().trim();
+                if (ltoken.length() < 4 || stopwords.contains(ltoken) || !POS.contains(poses[zz])) {
                     continue;
                 }
                 seenTerms.add(ltoken);
@@ -194,7 +206,7 @@ public class Tagger {
             ArrayList<String> prev = new ArrayList<String>();
             for (int zz = 0; zz < tokens.length; zz++) {
                 String ltoken = tokens[zz].toLowerCase().trim();
-                if (ltoken.length()< 4 || stopwords.contains(ltoken) || !POS.contains(poses[zz])) {
+                if (ltoken.length() < 4 || stopwords.contains(ltoken) || !POS.contains(poses[zz])) {
                     ngrams.add(prev);
                     prev = new ArrayList<String>();
                     continue;
@@ -212,15 +224,16 @@ public class Tagger {
             for (String term : phrase) {
                 Integer Dt = dfcounts.get(term);
                 if (Dt != null && Dt > 0) {
-                    score += seenTerms.get(term) * Math.log10(numdocs / (Dt * 1.0));
+                    Double boost = boosts.containsKey(term) ? boosts.get(term) : 1.0;
+                    score += seenTerms.get(term) * Math.log10(numdocs / (Dt * 1.0)) * boost;
                 }
             }
             trs.add(mergeArrayListSTring(phrase), score);
         }
 
-        
-        
-        
+
+
+
         return trs;
     }
 
@@ -231,6 +244,25 @@ public class Tagger {
             sb.append(" ");
         }
         return sb.toString();
+    }
+
+    private void loadBoosts(String boostsFileName) {
+        boosts = new HashMap<String, Double>();
+        BufferedReader in = null;
+        if (boostsFileName == null) {
+            return;
+        }
+        try {
+            in = new BufferedReader(new InputStreamReader(new FileInputStream(boostsFileName)));
+            String line;
+            while ((line = in.readLine()) != null) {
+                String[] wordscore = line.split("\\s+");
+                boosts.put(wordscore[0].trim().toLowerCase(), Double.parseDouble(wordscore[1]));
+            }
+            in.close();
+        } catch (Exception ex) {
+            LOGGER.error("Error loading Boosts, format is word_string [tab] boost_double \t" + ex.getMessage());
+        }
     }
 
     private void loadStopWords(String stopWordsFileName) {
@@ -270,5 +302,36 @@ public class Tagger {
 
     void setDFs(HashMap<String, Integer> dfcounts) {
         this.dfcounts = dfcounts;
+    }
+
+    public void writeFile(File dir) {
+        LOGGER.info("Writing tagger model to file");
+        try {
+            FileOutputStream fos = new FileOutputStream(dir + File.separator + "tagger.ser");
+            BufferedOutputStream bos = new BufferedOutputStream(fos);
+            ObjectOutputStream oos = new ObjectOutputStream(bos);
+            oos.writeObject(this.dfcounts);
+            oos.flush();
+            oos.close();
+        } catch (Exception e) {
+            LOGGER.error("There was a problem with saving model to disk. Tagger will still work because model is in memory." + e.getMessage());
+        }
+        LOGGER.info("Done writing tagger model to file");
+    }
+
+    public static Tagger loadTagger(File dir, String boostsFileName) {
+        LOGGER.info("Reading object from file");
+        Tagger dfb=null;
+        try {
+            FileInputStream fis = new FileInputStream(dir + File.separator + "tagger.ser");
+            BufferedInputStream bis = new BufferedInputStream(fis);
+            ObjectInputStream ois = new ObjectInputStream(bis);
+            dfb = new Tagger((HashMap<String, Integer>) ois.readObject(), boostsFileName);
+            ois.close();
+        } catch (Exception e) {
+            LOGGER.error("There was a problem with load model from disk. Tagger will not work unless build=true option is passed. Stack Message: " + e.getMessage());
+        }
+        LOGGER.info("Done reading object from file");
+        return dfb;
     }
 }
