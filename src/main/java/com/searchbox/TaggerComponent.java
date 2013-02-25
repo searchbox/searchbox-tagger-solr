@@ -54,6 +54,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
     protected Boolean buildOnOptimize = false;
     protected Boolean buildOnCommit = false;
     protected Integer minDocFreq;
+    protected Integer minTermFreq;
     protected Integer maxNumDocs;
     private Tagger dfb;
     volatile long numRequests;
@@ -109,6 +110,11 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             minDocFreq = TaggerComponentParams.MINDOCFREQ_DEFAULT;
         }
 
+        minTermFreq = (Integer) args.get(TaggerComponentParams.MINTERMFREQ);
+        if (minTermFreq == null) {
+            minTermFreq = TaggerComponentParams.MINTERMFREQ_DEFAULT;
+        }
+        
 
         maxNumDocs = (Integer) args.get(TaggerComponentParams.MAXNUMDOCS);
         if (maxNumDocs == null) {
@@ -373,7 +379,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
     private void buildAndWrite(SolrIndexSearcher searcher) {
         LOGGER.info("Building tagger model");
-        dfb = new Tagger(searcher, globalfields, boostsFileName, minDocFreq, maxNumDocs);
+        dfb = new Tagger(searcher, globalfields, boostsFileName, minDocFreq, minTermFreq, maxNumDocs);
         dfb.writeFile(storeDir);
         LOGGER.info("Done building and storing tagger model");
     }

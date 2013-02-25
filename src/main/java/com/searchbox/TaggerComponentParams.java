@@ -39,6 +39,10 @@ public class TaggerComponentParams {
     public static final String MINDOCFREQ = "minDocFreq";
     public static final Integer MINDOCFREQ_DEFAULT = 2;
     
+    public static final String MINTERMFREQ = "minTermFreq";
+    public static final Integer MINTERMFREQ_DEFAULT = 2;
+    
+    
     public static final String MAX_PHRASE_SEARCH = "mps";
     
     public static final String MAXNUMDOCS = "maxNumDocs";

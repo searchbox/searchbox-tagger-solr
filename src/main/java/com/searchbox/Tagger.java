@@ -55,7 +55,7 @@ public class Tagger {
     private HashMap<String, Double> boosts;
     public int numdocs;
     private HashMap<String, Integer> dfcounts = new HashMap<String, Integer>();
-    ;
+    private HashMap<String,Integer> tfcounts = new HashMap<String, Integer>(); //only used at create and prune time, otherwise null
     private static final Set<String> POS = new HashSet<String>(Arrays.asList(new String[]{"NN", "NNS", "NNPS", "NNP", "JJ"}));
 
     
@@ -169,10 +169,10 @@ public class Tagger {
         this.numdocs = dfcounts.get(DOC_COUNTS_STRING);
     }
 
-    Tagger(SolrIndexSearcher searcher, List<String> fields, String boostsFileName, int minDocFreq, int maxNumDocs) {
+    Tagger(SolrIndexSearcher searcher, List<String> fields, String boostsFileName, int minDocFreq, int minTermFreq,int maxNumDocs) {
         init(boostsFileName);
         DfCountBuilder(searcher, fields, maxNumDocs);
-        pruneList(minDocFreq);
+        pruneList(minDocFreq, minTermFreq);
     }
 
     private void processDocText(String text) {
@@ -188,6 +188,8 @@ public class Tagger {
                     continue;
                 }
                 seenTerms.add(ltoken);
+                Integer oldcount = tfcounts.containsKey(ltoken) ? tfcounts.get(ltoken) : 0;
+                tfcounts.put(ltoken, oldcount + 1);
             }
         }
         addSeenTermsToDFcount(seenTerms);
@@ -280,10 +282,14 @@ public class Tagger {
         }
     }
 
-    private void pruneList(int minDocFreq) {
+    private void pruneList(int minDocFreq, int minTermFreq) {
         for (Iterator<Map.Entry<String, Integer>> it = dfcounts.entrySet().iterator(); it.hasNext();) {
             Map.Entry<String, Integer> entry = it.next();
-            if (entry.getValue() < minDocFreq) {
+            Integer tfcount = tfcounts.get(entry.getKey());
+            if (tfcount == null) {
+                tfcount = 0;
+            }
+            if (entry.getValue() < minDocFreq || tfcount < minTermFreq) {
                 it.remove();
             }
         }

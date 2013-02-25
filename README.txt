@@ -117,7 +117,7 @@ this can take from a few seconds to a few minutes.
 
 	sbtagger.count
 
-Defines the number of possible taggerions to return. The default is 5    
+Defines the number of possible tags to return. The default is 5    
 	
 	sbtagger.q
 
