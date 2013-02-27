@@ -249,6 +249,8 @@ public class Tagger {
             return;
         }
         try {
+            String workingDir = System.getProperty("user.dir");
+            LOGGER.info(workingDir);
             in = new BufferedReader(new InputStreamReader(new FileInputStream(boostsFileName)));
             String line;
             while ((line = in.readLine()) != null) {
