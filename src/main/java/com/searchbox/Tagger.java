@@ -159,7 +159,7 @@ public class Tagger {
 
         LOGGER.info("Number of documents analyzed: \t" + numdocs);
         dfcounts.put(DOC_COUNTS_STRING, numdocs);
-
+        tfcounts.put(DOC_COUNTS_STRING, numdocs);
     }
 
     Tagger(HashMap<String, Integer> dfcounts, String boostsFileName) {
@@ -219,8 +219,6 @@ public class Tagger {
             }
         }
 
-
-
         for (ArrayList<String> phrase : ngrams) {
             double score = 0;
             for (String term : phrase) {
@@ -232,10 +230,6 @@ public class Tagger {
             }
             trs.add(mergeArrayListSTring(phrase), score);
         }
-
-
-
-
         return trs;
     }
 
@@ -332,12 +326,14 @@ public class Tagger {
             FileInputStream fis = new FileInputStream(dir + File.separator + "tagger.ser");
             BufferedInputStream bis = new BufferedInputStream(fis);
             ObjectInputStream ois = new ObjectInputStream(bis);
-            dfb = new Tagger((HashMap<String, Integer>) ois.readObject(), boostsFileName);
+            HashMap<String,Integer> dfcountsin = (HashMap<String, Integer>) ois.readObject();
             ois.close();
+            dfb = new Tagger(dfcountsin, boostsFileName);
         } catch (Exception e) {
             LOGGER.error("There was a problem with load model from disk. Tagger will not work unless build=true option is passed. Stack Message: " + e.getMessage());
         }
         LOGGER.info("Done reading object from file");
+        
         return dfb;
     }
 }

@@ -82,6 +82,15 @@ notably less processing time and resources. Considering that the taggerion is a 
 model, if it is known that there are many phrases which appear very infrequently and
 don't have a high recall value, putting these numbers higher will result in gained performance.
 The default is 2 for each and gives very well represented results.
+
+
+	<str name="boostsfile">/salsasvn/boostsfile.txt</str>
+
+The plugin supports user specified tag boost files to artifically increase or decrease
+the scores of certain tags. The format of the file is keyword TAB percent_boost. If 
+percent_boost is equal to 1.0 then no artifical boosting takes place, a score of 2.0 
+forces the score to be twice as high as it would normally be, respectively if the score 
+is 0.5 then the score is half of what it would normally be.
 	
 	<str name="key">YOUR_PRODUCT_KEY</str>
 
