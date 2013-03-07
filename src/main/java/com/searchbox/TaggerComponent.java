@@ -5,24 +5,17 @@
 package com.searchbox;
 
 import com.searchbox.TaggerResultSet.TaggerResult;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
-import javax.xml.ws.Response;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.IndexableField;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CommonParams;
 import org.apache.solr.common.params.SolrParams;
@@ -247,8 +240,10 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
                 Document doc = searcher.doc(docId, fset);
                 StringBuilder sb = new StringBuilder();
                 for (String field : fields) {
-                    String text = doc.getField(field).stringValue();
-                    sb.append(text + ". ");
+                    IndexableField[] multifield = doc.getFields(field);
+                    for (IndexableField singlefield : multifield) {
+                        sb.append(singlefield.stringValue() + ". ");
+                    }
                 }
 
                 String q = sb.toString();
@@ -309,7 +304,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
     @Override
     public String getDescription() {
-        return "Searchbox Suggester";
+        return "Searchbox Tagger";
     }
 
     @Override
