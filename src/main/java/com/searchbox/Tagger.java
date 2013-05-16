@@ -117,7 +117,7 @@ public class Tagger {
         }
     }
 
-    private void DfCountBuilder(SolrIndexSearcher searcher, List<String> fields, int maxNumDocs) {
+    private void DfCountBuilder(SolrIndexSearcher searcher, String[] fields, int maxNumDocs) {
         IndexReader reader = searcher.getIndexReader();
         Bits liveDocs = MultiFields.getLiveDocs(reader); //WARNING: returns null if there are no deletions
 
@@ -169,7 +169,7 @@ public class Tagger {
         this.numdocs = dfcounts.get(DOC_COUNTS_STRING);
     }
 
-    Tagger(SolrIndexSearcher searcher, List<String> fields, String boostsFileName, int minDocFreq, int minTermFreq,int maxNumDocs) {
+    Tagger(SolrIndexSearcher searcher, String[] fields, String boostsFileName, int minDocFreq, int minTermFreq,int maxNumDocs) {
         init(boostsFileName);
         DfCountBuilder(searcher, fields, maxNumDocs);
         pruneList(minDocFreq, minTermFreq);

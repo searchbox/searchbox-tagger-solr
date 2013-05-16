@@ -56,7 +56,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
     volatile long totalRequestsTime;
     volatile String lastbuildDate;
     private boolean keystate = true;
-    List<String> globalfields;
+    protected String[] gfields;
 
     @Override
     public void init(NamedList args) {
@@ -114,8 +114,15 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             maxNumDocs = TaggerComponentParams.MAXNUMDOCS_DEFAULT;
         }
 
-        globalfields = ((NamedList) args.get(TaggerComponentParams.QUERY_FIELDS)).getAll(TaggerComponentParams.QUERY_FIELD);
-        if (globalfields == null) {
+        NamedList fields= ((NamedList) args.get(TaggerComponentParams.QUERY_FIELDS));
+        if(fields==null)
+        {
+                 throw new SolrException(SolrException.ErrorCode.SERVER_ERROR,
+                    "Need to specify at least one field");
+        }
+       
+        gfields = (String [])fields.getAll(TaggerComponentParams.QUERY_FIELD).toArray(new String[0]);
+        if (gfields == null) {
             throw new SolrException(SolrException.ErrorCode.SERVER_ERROR,
                     "Need to specify at least one field");
         }
@@ -129,7 +136,7 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         LOGGER.debug("buildOnCommit is " + buildOnCommit);
         LOGGER.debug("buildOnOptimize is " + buildOnOptimize);
         LOGGER.debug("storeDirname is " + storeDirname);
-        LOGGER.debug("Fields is " + globalfields);
+        LOGGER.debug("Fields is " + gfields);
         LOGGER.debug("Boosts file is " + boostsFileName);
 
     }
@@ -150,12 +157,20 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
             return;
         }
         SolrParams params = rb.req.getParams();
-
+        String [] fields = params.getParams(TaggerComponentParams.QUERY_FIELDS+"."+TaggerComponentParams.QUERY_FIELD); 
+        
+        if(fields==null){
+            fields=gfields;
+        } else {
+            for(String field: fields){
+               LOGGER.info("Using overrode fields:"+field);
+            }
+        }
         boolean build = params.getBool(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.BUILD, false);
         SolrIndexSearcher searcher = rb.req.getSearcher();
         if (build) {
             long lstartTime = System.currentTimeMillis();
-            buildAndWrite(searcher);
+            buildAndWrite(searcher, fields);
             totalBuildTime += System.currentTimeMillis() - lstartTime;
             lastbuildDate = new Date().toString();
         }
@@ -197,13 +212,13 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
 
 
         String[] localfields = params.getParams(TaggerComponentParams.QUERY_FIELDS);
-        List<String> fields = null;
+        String[] fields = null;
 
-        if (globalfields != null) {
-            fields = globalfields;
+        if (gfields != null) {
+            fields = gfields;
         }
         if (localfields != null) {
-            fields = new ArrayList<String>(Arrays.asList(localfields));
+            fields = localfields;
         }
 
         if (fields == null) {
@@ -357,10 +372,10 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         } else {
             // newSearcher event
             if (buildOnCommit) {
-                buildAndWrite(newSearcher);
+                buildAndWrite(newSearcher, gfields);
             } else if (buildOnOptimize) {
                 if (newSearcher.getIndexReader().leaves().size() == 1) {
-                    buildAndWrite(newSearcher);
+                    buildAndWrite(newSearcher, gfields);
                 } else {
                     LOGGER.info("Index is not optimized therefore skipping building tagger index");
                 }
@@ -372,9 +387,9 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         return com.searchbox.utils.DecryptLicense.checkLicense(key, PRODUCT_KEY);
     }
 
-    private void buildAndWrite(SolrIndexSearcher searcher) {
+    private void buildAndWrite(SolrIndexSearcher searcher, String[] fields) {
         LOGGER.info("Building tagger model");
-        dfb = new Tagger(searcher, globalfields, boostsFileName, minDocFreq, minTermFreq, maxNumDocs);
+        dfb = new Tagger(searcher, fields, boostsFileName, minDocFreq, minTermFreq, maxNumDocs);
         dfb.writeFile(storeDir);
         LOGGER.info("Done building and storing tagger model");
     }
