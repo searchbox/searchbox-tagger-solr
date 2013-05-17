@@ -176,8 +176,8 @@ public class TaggerComponent extends SearchComponent implements SolrCoreAware, S
         }
 
         if (dfb == null) {
-            throw new SolrException(SolrException.ErrorCode.SERVER_ERROR,
-                    "Model for SBtagger not created, create using sbtagger.build=true");
+                LOGGER.error("Model for SBtagger not created, create using sbtagger.build=true");
+                return;
         }
         String commonparamsQuery = params.get(CommonParams.Q);
         String query = params.get(TaggerComponentParams.PRODUCT_NAME + "." + TaggerComponentParams.QUERY);
