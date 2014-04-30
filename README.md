@@ -1,10 +1,8 @@
-Welcome to Searchbox-Tagger!
------------------------------------
-
-This document explains how the Searchbox-Tagger plugin 
-can be configured to provide a Solr search component to add 
-out-of-the-box high quality tags to documents. In addition, this
-search component can be used to produce tags given plain text as a
+Searchbox-Tagger by Searchbox
+=========
+The Searchbox-Tagger plugin by Searchbox is a Solr search component 
+which adds out-of-the-box high quality tags to documents. In addition, 
+this search component can be used to produce tags given plain text as a
 query, obviating the need to create a document to get tags.
 
 The Searchbox-Tagger plugin analyses the designated full-text fields
@@ -15,44 +13,41 @@ for the text and returns them in the Solr response. We also allow for
 a user specified boost file, which boosts the associated keywords by
 the user specified amount.
 
-We recommend you head over to our website and register your email 
-address to receive notifications about software updates and 
-new products. We're rolling out additional tools for different 
-domains in the coming months, so stay tuned!
-
 Getting Started
 ---------------
 Add the following request handler to the appropriate solrconfig.xml:
 
+```xml
+<searchComponent class="com.searchbox.TaggerComponent" name="sbtagger">
+	<lst name="queryFields">
+    	<str name="queryField">article-title</str>
+		<str name="queryField">article-abstract</str>
+    </lst>
+    <str name="buildOnCommit">true</str>
+    <str name="buildOnOptimize">true</str>
+    <str name="storeDir">sbtagger</str>
+	<int name="maxNumDocs">50000</int>
+	<str name="boostsfile">./boostsfile.txt</str>
+</searchComponent>
+```
 
-		
-	 <searchComponent class="com.searchbox.TaggerComponent" name="sbtagger">
-        <lst name="queryFields">
-            <str name="queryField">article-title</str>
-			<str name="queryField">article-abstract</str>
-        </lst>
-        <str name="buildOnCommit">true</str>
-        <str name="buildOnOptimize">true</str>
-        <str name="storeDir">sbtagger</str>
-		<int name="maxNumDocs">50000</int>
-		<str name="boostsfile">/salsasvn/boostsfile.txt</str>
-		<str name="key">YOUR_PRODUCT_KEY</str>
-	</searchComponent>
-	
 We will explain the meaning and usage of the various parameters:
 
-
-	<lst name="fields">
-		<str name="field">article-title</str>
-		<str name="field">article-abstract</str>
-	</lst>
+```xml
+<lst name="fields">
+	<str name="field">article-title</str>
+	<str name="field">article-abstract</str>
+</lst>
+```
 
 We need to define the schema fields which will be used for analysis of the corpus.  
 Analysis of these fields requires that they are Stored=true so that 
 the raw full text is available. The list can contain one or more fields.
-	
-	<str name="buildOnCommit">true</str>
-	<str name="buildOnOptimize">true</str>
+
+```xml
+<str name="buildOnCommit">true</str>
+<str name="buildOnOptimize">true</str>
+```
 
 These options define if the tagger model should be (re)build upon a solr commit or
 upon optimize. This works very similar to the Solr spellchecker plugin and
@@ -60,63 +55,67 @@ thus their comments hold: Building on commit is expensive and is discouraged for
 production systems.  For large indexes, one commit may take minutes since the building of 
 tagger model is single threaded. Typically one uses buildOnOptimize or explicit build instead.
 
-	<str name="storeDir">sbtagger</str>
+```xml
+<str name="storeDir">sbtagger</str>
+```
 
-This is the directory where the serialied model will be stored. It can be either an aboslute
+This is the directory where the serialized model will be stored. It can be either an aboslute
 directory (starting with "/") or a relative directory to Solr's data directory. If the
 path doesn't exist, the necessary directories are created so it is valid.
 
+```xml
 	<int name="maxNumDocs">50000</int>
+```
 
-The maximum number of doucments to analyze to produce the tagger model. If set to -1, then
+The maximum number of documents to analyze to produce the tagger model. If set to -1, then
 all documents in the repository are used. The higher the number the more resources and time
 are required to compute and store. 
 	
-	<int name="minDocFreq">2</int>
-	<int name="minTermFreq">2</int>
+```xml
+<int name="minDocFreq">2</int>
+<int name="minTermFreq">2</int>
+```
 
 These two parameters put a limit on the phrases which are considered acceptable. In this
 case we specify that a tag must appear in at least 2 documents and must appear in total
 at least twice. The higher the number, the less tags will be modeled and thus require
-notably less processing time and resources. Considering that the taggerion is a probablistic
+notably less processing time and resources. Considering that the tagger is a probablistic
 model, if it is known that there are many phrases which appear very infrequently and
 don't have a high recall value, putting these numbers higher will result in gained performance.
 The default is 2 for each and gives very well represented results.
 
+```xml
+<str name="boostsfile">./boostsfile.txt</str>
+```
 
-	<str name="boostsfile">/salsasvn/boostsfile.txt</str>
-
-The plugin supports user specified tag boost files to artifically increase or decrease
+The plugin supports user specified tag boost files to artificially increase or decrease
 the scores of certain tags. The format of the file is keyword TAB percent_boost. If 
-percent_boost is equal to 1.0 then no artifical boosting takes place, a score of 2.0 
+percent_boost is equal to 1.0 then no artificial boosting takes place, a score of 2.0 
 forces the score to be twice as high as it would normally be, respectively if the score 
 is 0.5 then the score is half of what it would normally be.
-	
-	<str name="key">YOUR_PRODUCT_KEY</str>
-
-Of course you'll need to replace YOUR_PRODUCT_KEY from the product key you obtained
-at www.searchbox.com or by emailing contact@searchbox.com
 
 			
 Usage Of Search Component
 ---------------
-
 Although search components are intended to be used in line with searchers, it is 
 possible to define a request handler for example purposes (similar to the default
 installation of Solr and their demonstration of the spell checker). To do this
 simply add to solrconfig.xml:
 
-	<requestHandler name="/sbtagger" class="solr.SearchHandler">
-		<arr name="last-components">
-			<str>sbtagger</str>
-		</arr>
-	</requestHandler>
-
+```xml
+<requestHandler name="/sbtagger" class="solr.SearchHandler">
+	<arr name="last-components">
+		<str>sbtagger</str>
+	</arr>
+</requestHandler>
+```
 
 The following are acceptable URL (and thus configuration) options which
 can be set:
 
-	sbtagger.build=true
+```
+sbtagger.build=true
+```
 
 THIS IS REQUIRED upon first running to create the model, especially if buildOnOptimize
 and buildOnCommit are not set to true. If this option isn't sent with the first
@@ -124,11 +123,15 @@ request there will be no model to process the query. This also throws an error
 in the Solr Log. Given the size of the repository and processor power of the machines
 this can take from a few seconds to a few minutes.
 
-	sbtagger.count
+```
+sbtagger.count
+```
 
 Defines the number of possible tags to return. The default is 5    
-	
-	sbtagger.q
+
+```
+sbtagger.q
+```
 
 Different from the Solr spell checker, this parameter DOES NOT override the common q parameter. 
 It is used only in the case where the common q parameters (q="...") is empty. It can be used
@@ -137,34 +140,35 @@ the following section.
 	
 
 Understanding the results
-----------------------------
-
+---------------
 A sample response using the tagger to tag free text is presented below:
 
 http://192.168.56.101:8982/pubmed_demo/sbtag?q=&sbtagger.q=BackgroundThe%20functional%20sites%20of%20a%20protein%20present%20important%20information%20for%20determining%20its%20cellular%20function%20and%20are%20fundamental%20in%20drug%20design.%20Accordingly,%20accurate%20methods%20for%20the%20prediction%20of%20functional%20sites%20are%20of%20immense%20value.%20Most%20available%20methods%20are%20based%20on%20a%20set%20of%20homologous%20sequences%20and%20structural%20or%20evolutionary%20information,%20and%20assume%20that%20functional%20sites%20are%20more%20conserved%20than%20the%20average.%20In%20the%20analysis%20presented%20here,%20we%20have%20investigated%20the%20conservation%20of%20location%20and%20type%20of%20amino%20acids%20at%20functional%20sites,%20and%20compared%20the%20behaviour%20of%20functional%20sites%20between%20different%20protein%20domains.ResultsFunctional%20sites%20were%20extracted%20from%20experimentally%20determined%20structural%20complexes%20from%20the%20Protein%20Data%20Bank%20harbouring%20a%20conserved%20protein%20domain%20from%20the%20SMART%20database.%20In%20general,%20functional%20(i.e.%20interacting)%20sites%20whose%20location%20is%20more%20highly%20conserved%20are%20also%20more%20conserved%20in%20their%20type%20of%20amino%20acid.%20However,%20even%20highly%20conserved%20functional%20sites%20can%20present%20a%20wide%20spectrum%20of%20amino%20acids.%20The%20degree%20of%20conservation%20strongly%20depends%20on%20the%20function%20of%20the%20protein%20domain%20and%20ranges%20from%20highly%20conserved%20in%20location%20and%20amino%20acid%20to%20very%20variable.%20Differentiation%20by%20binding%20partner%20shows%20that%20ion%20binding%20sites%20tend%20to%20be%20more%20conserved%20than%20functional%20sites%20binding%20peptides%20or%20nucleotides.ConclusionThe%20results%20gained%20by%20this%20analysis%20will%20help%20improve%20the%20accuracy%20of%20functional%20site%20prediction%20and%20facilitate%20the%20characterization%20of%20unknown%20protein%20sequences.
 
-	<response>
-		<lst name="responseHeader">
-			<int name="status">0</int>
-			<int name="QTime">668</int>
+```xml
+<response>
+	<lst name="responseHeader">
+		<int name="status">0</int>
+		<int name="QTime">668</int>
+	</lst>
+	<result name="response" numFound="0" start="0"/>
+	<lst name="sbtagger">
+		<lst name="sbtagger.q">
+			<double name="functional sites binding peptides ">23.459341475042095</double>
+			<double name="background functional sites ">19.063731073787036</double>
+			<double name="functional sites ">17.734912434901865</double>
+			<double name="protein domains.resultsfunctional sites ">15.68703080866825</double>
+			<double name="binding sites ">15.566828349168397</double>
 		</lst>
-		<result name="response" numFound="0" start="0"/>
-		<lst name="sbtagger">
-			<lst name="sbtagger.q">
-				<double name="functional sites binding peptides ">23.459341475042095</double>
-				<double name="backgroundthe functional sites ">19.063731073787036</double>
-				<double name="functional sites ">17.734912434901865</double>
-				<double name="protein domains.resultsfunctional sites ">15.68703080866825</double>
-				<double name="binding sites ">15.566828349168397</double>
-			</lst>
-		</lst>
-	</response>
-
+	</lst>
+</response>
+```
 
 A sample response using the tagger as a search component is presented below:
 
 http://192.168.56.101:8982/pubmed_demo/sbtag?q=*%3A*&wt=xml	
 
+```xml
 <response>
     <lst name="responseHeader">
         <int name="status">0</int>
@@ -189,11 +193,11 @@ http://192.168.56.101:8982/pubmed_demo/sbtag?q=*%3A*&wt=xml
             <str name="article-title">Mining metastasis related genes by primary-secondary tumor comparisons from large-scale databases</str>
             <arr name="content">
                 <str>Mining metastasis related genes by primary-secondary tumor comparisons from large-scale databases</str>
-                <str>BackgroundMetastasis is the most dangerous step in cancer progression and causes more than 90% of cancer death. Although many researchers have been working on biological features and characteristics of metastasis, most of its genetic level processes remain uncertain. Some studies succeeded in elucidating metastasis related genes and pathways, followed by predicting prognosis of cancer patients, but there still is a question whether the result genes or pathways contain enough information and noise features have been controlled appropriately.MethodsWe set four tumor type classes composed of various tumor characteristics such as tissue origin, cellular environment, and metastatic ability. We conducted a set of comparisons among the four tumor classes followed by searching for genes that are consistently up or down regulated through the whole comparisons.ResultsWe identified four sets of genes that are consistently differently expressed in the comparisons, each of which denotes one of four cellular characteristics respectively – liver tissue, colon tissue, liver viability and metastasis characteristics. We found that our candidate genes for tissue specificity are consistent with the TiGER database. And we also found that the metastasis candidate genes from our method were more consistent with the known biological background and independent from other noise features.ConclusionWe suggested a new method for identifying metastasis related genes from a large-scale database. The proposed method attempts to minimize the influences from other factors except metastatic ability including tissue originality and tissue viability by confining the result of metastasis unrelated test combinations.</str>
+                <str>BackgroundMetastasis is the most dangerous step in cancer progression and causes more than 90% of cancer death. Although many researchers have been working on biological features and characteristics of metastasis, most of its genetic level processes remain uncertain. Some studies succeeded in elucidating metastasis related genes and pathways, followed by predicting prognosis of cancer patients, but there still is a question whether the result genes or pathways contain enough information and noise features have been controlled appropriately.MethodsWe set four tumor type classes composed of various tumor characteristics such as tissue origin, cellular environment, and metastatic ability. We conducted a set of comparisons among the four tumor classes followed by searching for genes that are consistently up or down regulated through the whole comparisons.ResultsWe identified four sets of genes that are consistently differently expressed in the comparisons, each of which denotes one of four cellular characteristics respectively ï¿½ liver tissue, colon tissue, liver viability and metastasis characteristics. We found that our candidate genes for tissue specificity are consistent with the TiGER database. And we also found that the metastasis candidate genes from our method were more consistent with the known biological background and independent from other noise features.ConclusionWe suggested a new method for identifying metastasis related genes from a large-scale database. The proposed method attempts to minimize the influences from other factors except metastatic ability including tissue originality and tissue viability by confining the result of metastasis unrelated test combinations.</str>
             </arr>
             <str name="file">BMC_Bioinformatics_2009_Mar_19_10(Suppl_3)_S2.nxml</str>
             <arr name="article-abstract">
-                <str>BackgroundMetastasis is the most dangerous step in cancer progression and causes more than 90% of cancer death. Although many researchers have been working on biological features and characteristics of metastasis, most of its genetic level processes remain uncertain. Some studies succeeded in elucidating metastasis related genes and pathways, followed by predicting prognosis of cancer patients, but there still is a question whether the result genes or pathways contain enough information and noise features have been controlled appropriately.MethodsWe set four tumor type classes composed of various tumor characteristics such as tissue origin, cellular environment, and metastatic ability. We conducted a set of comparisons among the four tumor classes followed by searching for genes that are consistently up or down regulated through the whole comparisons.ResultsWe identified four sets of genes that are consistently differently expressed in the comparisons, each of which denotes one of four cellular characteristics respectively – liver tissue, colon tissue, liver viability and metastasis characteristics. We found that our candidate genes for tissue specificity are consistent with the TiGER database. And we also found that the metastasis candidate genes from our method were more consistent with the known biological background and independent from other noise features.ConclusionWe suggested a new method for identifying metastasis related genes from a large-scale database. The proposed method attempts to minimize the influences from other factors except metastatic ability including tissue originality and tissue viability by confining the result of metastasis unrelated test combinations.</str>
+                <str>BackgroundMetastasis is the most dangerous step in cancer progression and causes more than 90% of cancer death. Although many researchers have been working on biological features and characteristics of metastasis, most of its genetic level processes remain uncertain. Some studies succeeded in elucidating metastasis related genes and pathways, followed by predicting prognosis of cancer patients, but there still is a question whether the result genes or pathways contain enough information and noise features have been controlled appropriately.MethodsWe set four tumor type classes composed of various tumor characteristics such as tissue origin, cellular environment, and metastatic ability. We conducted a set of comparisons among the four tumor classes followed by searching for genes that are consistently up or down regulated through the whole comparisons.ResultsWe identified four sets of genes that are consistently differently expressed in the comparisons, each of which denotes one of four cellular characteristics respectively ï¿½ liver tissue, colon tissue, liver viability and metastasis characteristics. We found that our candidate genes for tissue specificity are consistent with the TiGER database. And we also found that the metastasis candidate genes from our method were more consistent with the known biological background and independent from other noise features.ConclusionWe suggested a new method for identifying metastasis related genes from a large-scale database. The proposed method attempts to minimize the influences from other factors except metastatic ability including tissue originality and tissue viability by confining the result of metastasis unrelated test combinations.</str>
             </arr>
             <str name="_version_">1421611432353464320</str>
         </doc>
@@ -254,11 +258,11 @@ http://192.168.56.101:8982/pubmed_demo/sbtag?q=*%3A*&wt=xml
             <str name="article-title">Application of a sensitive collection heuristic for very large protein families: Evolutionary relationship between adipose triglyceride lipase (ATGL) and classic mammalian lipases</str>
             <arr name="content">
                 <str>Application of a sensitive collection heuristic for very large protein families: Evolutionary relationship between adipose triglyceride lipase (ATGL) and classic mammalian lipases</str>
-                <str>BackgroundManually finding subtle yet statistically significant links to distantly related homologues becomes practically impossible for very populated protein families due to the sheer number of similarity searches to be invoked and analyzed. The unclear evolutionary relationship between classical mammalian lipases and the recently discovered human adipose triglyceride lipase (ATGL; a patatin family member) is an exemplary case for such a problem.ResultsWe describe an unsupervised, sensitive sequence segment collection heuristic suitable for assembling very large protein families. It is based on fan-like expanding, iterative database searches. To prevent inclusion of unrelated hits, additional criteria are introduced: minimal alignment length and overlap with starting sequence segments, finding starting sequences in reciprocal searches, automated filtering for compositional bias and repetitive patterns. This heuristic was implemented as FAMILYSEARCHER in the ANNIE sequence analysis environment and applied to search for protein links between the classical lipase family and the patatin-like group.ConclusionThe FAMILYSEARCHER is an efficient tool for tracing distant evolutionary relationships involving large protein families. Although classical lipases and ATGL have no obvious sequence similarity and differ with regard to fold and catalytic mechanism, homology links detected with FAMILYSEARCHER show that they are evolutionarily related. The conserved sequence parts can be narrowed down to an ancestral core module consisting of three ß-strands, one a-helix and a turn containing the typical nucleophilic serine. Moreover, this ancestral module also appears in numerous enzymes with various substrate specificities, but that critically rely on nucleophilic attack mechanisms.</str>
+                <str>BackgroundManually finding subtle yet statistically significant links to distantly related homologues becomes practically impossible for very populated protein families due to the sheer number of similarity searches to be invoked and analyzed. The unclear evolutionary relationship between classical mammalian lipases and the recently discovered human adipose triglyceride lipase (ATGL; a patatin family member) is an exemplary case for such a problem.ResultsWe describe an unsupervised, sensitive sequence segment collection heuristic suitable for assembling very large protein families. It is based on fan-like expanding, iterative database searches. To prevent inclusion of unrelated hits, additional criteria are introduced: minimal alignment length and overlap with starting sequence segments, finding starting sequences in reciprocal searches, automated filtering for compositional bias and repetitive patterns. This heuristic was implemented as FAMILYSEARCHER in the ANNIE sequence analysis environment and applied to search for protein links between the classical lipase family and the patatin-like group.ConclusionThe FAMILYSEARCHER is an efficient tool for tracing distant evolutionary relationships involving large protein families. Although classical lipases and ATGL have no obvious sequence similarity and differ with regard to fold and catalytic mechanism, homology links detected with FAMILYSEARCHER show that they are evolutionarily related. The conserved sequence parts can be narrowed down to an ancestral core module consisting of three ï¿½-strands, one a-helix and a turn containing the typical nucleophilic serine. Moreover, this ancestral module also appears in numerous enzymes with various substrate specificities, but that critically rely on nucleophilic attack mechanisms.</str>
             </arr>
             <str name="file">BMC_Bioinformatics_2006_Mar_21_7_164.nxml</str>
             <arr name="article-abstract">
-                <str>BackgroundManually finding subtle yet statistically significant links to distantly related homologues becomes practically impossible for very populated protein families due to the sheer number of similarity searches to be invoked and analyzed. The unclear evolutionary relationship between classical mammalian lipases and the recently discovered human adipose triglyceride lipase (ATGL; a patatin family member) is an exemplary case for such a problem.ResultsWe describe an unsupervised, sensitive sequence segment collection heuristic suitable for assembling very large protein families. It is based on fan-like expanding, iterative database searches. To prevent inclusion of unrelated hits, additional criteria are introduced: minimal alignment length and overlap with starting sequence segments, finding starting sequences in reciprocal searches, automated filtering for compositional bias and repetitive patterns. This heuristic was implemented as FAMILYSEARCHER in the ANNIE sequence analysis environment and applied to search for protein links between the classical lipase family and the patatin-like group.ConclusionThe FAMILYSEARCHER is an efficient tool for tracing distant evolutionary relationships involving large protein families. Although classical lipases and ATGL have no obvious sequence similarity and differ with regard to fold and catalytic mechanism, homology links detected with FAMILYSEARCHER show that they are evolutionarily related. The conserved sequence parts can be narrowed down to an ancestral core module consisting of three ß-strands, one a-helix and a turn containing the typical nucleophilic serine. Moreover, this ancestral module also appears in numerous enzymes with various substrate specificities, but that critically rely on nucleophilic attack mechanisms.</str>
+                <str>BackgroundManually finding subtle yet statistically significant links to distantly related homologues becomes practically impossible for very populated protein families due to the sheer number of similarity searches to be invoked and analyzed. The unclear evolutionary relationship between classical mammalian lipases and the recently discovered human adipose triglyceride lipase (ATGL; a patatin family member) is an exemplary case for such a problem.ResultsWe describe an unsupervised, sensitive sequence segment collection heuristic suitable for assembling very large protein families. It is based on fan-like expanding, iterative database searches. To prevent inclusion of unrelated hits, additional criteria are introduced: minimal alignment length and overlap with starting sequence segments, finding starting sequences in reciprocal searches, automated filtering for compositional bias and repetitive patterns. This heuristic was implemented as FAMILYSEARCHER in the ANNIE sequence analysis environment and applied to search for protein links between the classical lipase family and the patatin-like group.ConclusionThe FAMILYSEARCHER is an efficient tool for tracing distant evolutionary relationships involving large protein families. Although classical lipases and ATGL have no obvious sequence similarity and differ with regard to fold and catalytic mechanism, homology links detected with FAMILYSEARCHER show that they are evolutionarily related. The conserved sequence parts can be narrowed down to an ancestral core module consisting of three ï¿½-strands, one a-helix and a turn containing the typical nucleophilic serine. Moreover, this ancestral module also appears in numerous enzymes with various substrate specificities, but that critically rely on nucleophilic attack mechanisms.</str>
             </arr>
             <str name="_version_">1421611432357658624</str>
         </doc>
@@ -375,7 +379,8 @@ http://192.168.56.101:8982/pubmed_demo/sbtag?q=*%3A*&wt=xml
         </lst>
     </lst>
 </response>
-	
+```
+
 We can see that we have asked for tags for the first 10 documents using
 the query "*:*". for  a pubmed dataset (a medical research publication 
 repository). As expected we see see a list of responses in the sbtagger xml object. 
