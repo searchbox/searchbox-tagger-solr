@@ -64,7 +64,7 @@ directory (starting with "/") or a relative directory to Solr's data directory. 
 path doesn't exist, the necessary directories are created so it is valid.
 
 ```xml
-	<int name="maxNumDocs">50000</int>
+<int name="maxNumDocs">50000</int>
 ```
 
 The maximum number of documents to analyze to produce the tagger model. If set to -1, then
